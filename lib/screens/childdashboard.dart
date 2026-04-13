@@ -369,39 +369,66 @@ class _ChildDashboardState extends State<ChildDashboard>
 
                         // Avatar picker
                         _label('Choose your avatar!'),
-                        const SizedBox(height: 12),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
+                        const SizedBox(height: 4),
+                        Text(
+                          'Swipe to see more  →',
+                          style: GoogleFonts.fredoka(
+                            fontSize: 13,
+                            color: const Color(0xFFE8724A).withOpacity(0.70),
                           ),
-                          itemCount: _avatarOptions.length,
-                          itemBuilder: (context, index) {
-                            final path = _avatarOptions[index];
-                            final selected = _selectedAvatar == path;
-                            return GestureDetector(
-                              onTap: () => setState(() => _selectedAvatar = path),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: selected ? const Color(0xFFE8724A) : Colors.transparent,
-                                    width: 3.5,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 110,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _avatarOptions.length,
+                            itemBuilder: (context, index) {
+                              final path = _avatarOptions[index];
+                              final selected = _selectedAvatar == path;
+                              return GestureDetector(
+                                onTap: () => setState(() => _selectedAvatar = path),
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: index == 0 ? 0 : 12,
+                                    right: index == _avatarOptions.length - 1 ? 0 : 0,
                                   ),
-                                  boxShadow: selected
-                                      ? [BoxShadow(color: const Color(0xFFE8724A).withOpacity(0.35), blurRadius: 12)]
-                                      : [],
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    width: 90,
+                                    height: 90,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: selected
+                                            ? const Color(0xFFE8724A)
+                                            : Colors.transparent,
+                                        width: 3.5,
+                                      ),
+                                      boxShadow: selected
+                                          ? [
+                                              BoxShadow(
+                                                color: const Color(0xFFE8724A).withOpacity(0.40),
+                                                blurRadius: 14,
+                                                spreadRadius: 1,
+                                              ),
+                                            ]
+                                          : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.08),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                    ),
+                                    child: ClipOval(
+                                      child: Image.asset(path, fit: BoxFit.cover),
+                                    ),
+                                  ),
                                 ),
-                                child: ClipOval(
-                                  child: Image.asset(path, fit: BoxFit.cover),
-                                ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                         const SizedBox(height: 32),
                       ],
