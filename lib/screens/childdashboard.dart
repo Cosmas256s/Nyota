@@ -28,10 +28,10 @@ class _ChildDashboardState extends State<ChildDashboard>
   bool _needsSetup = false;
 
   // Onboarding state
-  int _onboardingStep = 0; // 0 = name/avatar, 1 = hand preference
+  int _onboardingStep = 0;
   int _selectedAge = 6;
   String? _selectedAvatar;
-  String? _selectedHand; // 'left' or 'right'
+  String? _selectedHand;
   final TextEditingController _nameController = TextEditingController();
 
   // Animation controllers
@@ -101,16 +101,10 @@ class _ChildDashboardState extends State<ChildDashboard>
     _childName = prefs.getString('childName');
     _avatarPath = prefs.getString('avatarPath');
 
-    // Only new users (no profile) go through onboarding
     if (_childName == null || _avatarPath == null) {
-      setState(() {
-        _needsSetup = true;
-        _isLoading = false;
-      });
+      setState(() { _needsSetup = true; _isLoading = false; });
       return;
     }
-
-    // Existing users with an established profile skip onboarding entirely
     await _loadProfileAndSchedule();
   }
 
@@ -118,13 +112,11 @@ class _ChildDashboardState extends State<ChildDashboard>
     final prefs = await SharedPreferences.getInstance();
     final storage = StorageService();
     await storage.init();
-
     try {
       final schedules = await storage.loadActivitySchedules();
       final rewards = await storage.loadRewardImages();
       final completedList = prefs.getStringList('completedToday') ?? [];
       final completedMap = {for (var name in completedList) name: true};
-
       setState(() {
         _activitySchedules = schedules;
         _rewardImages = rewards;
@@ -151,15 +143,11 @@ class _ChildDashboardState extends State<ChildDashboard>
     }
     scheduled.sort((a, b) {
       final timesA = (_activitySchedules[a] ?? [])
-          .map((s) => s['startTime'] as String? ?? '99:99')
-          .toList();
+          .map((s) => s['startTime'] as String? ?? '99:99').toList();
       final timesB = (_activitySchedules[b] ?? [])
-          .map((s) => s['startTime'] as String? ?? '99:99')
-          .toList();
-      final earliestA =
-          timesA.isEmpty ? '99:99' : timesA.reduce((x, y) => x.compareTo(y) < 0 ? x : y);
-      final earliestB =
-          timesB.isEmpty ? '99:99' : timesB.reduce((x, y) => x.compareTo(y) < 0 ? x : y);
+          .map((s) => s['startTime'] as String? ?? '99:99').toList();
+      final earliestA = timesA.isEmpty ? '99:99' : timesA.reduce((x, y) => x.compareTo(y) < 0 ? x : y);
+      final earliestB = timesB.isEmpty ? '99:99' : timesB.reduce((x, y) => x.compareTo(y) < 0 ? x : y);
       return earliestA.compareTo(earliestB);
     });
     return scheduled;
@@ -172,7 +160,7 @@ class _ChildDashboardState extends State<ChildDashboard>
         .map((s) => s['startTime'] as String? ?? '??:??')
         .reduce((a, b) => a.compareTo(b) < 0 ? a : b);
     final duration = sessions.isNotEmpty ? sessions.first['duration'] as int? ?? 15 : 15;
-    return '$earliest • $duration min';
+    return '$earliest · $duration min';
   }
 
   void _startActivity(String activityName) {
@@ -216,7 +204,6 @@ class _ChildDashboardState extends State<ChildDashboard>
     }
   }
 
-  // ─── SAVE ───────────────────────────────────────────────────────────────────
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('childName', _nameController.text.trim());
@@ -225,29 +212,22 @@ class _ChildDashboardState extends State<ChildDashboard>
     if (_selectedHand != null) {
       await prefs.setString('dominantHand', _selectedHand!);
     }
-
     setState(() {
       _childName = _nameController.text.trim();
       _avatarPath = _selectedAvatar;
       _needsSetup = false;
     });
-
     await _loadProfileAndSchedule();
   }
 
-  // ─── ONBOARDING ENTRY ───────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
     if (_needsSetup) {
-      return _onboardingStep == 0
-          ? _buildAvatarPage()
-          : _buildHandPreferencePage();
+      return _onboardingStep == 0 ? _buildAvatarPage() : _buildHandPreferencePage();
     }
-
     return _buildDashboard();
   }
 
@@ -256,6 +236,7 @@ class _ChildDashboardState extends State<ChildDashboard>
     return AnimatedBuilder(
       animation: _bgController,
       builder: (_, __) => Scaffold(
+        resizeToAvoidBottomInset: false,
         body: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -268,194 +249,13 @@ class _ChildDashboardState extends State<ChildDashboard>
             ),
           ),
           child: SafeArea(
-            child: Column(
-              children: [
-                _buildOnboardingHeader('Step 1 of 2', 'Pick your avatar!', '🌟', canGoBack: false),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Name field
-                        _label("What's your name?"),
-                        const SizedBox(height: 10),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.75),
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE8A07A).withOpacity(0.18),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _nameController,
-                            style: GoogleFonts.fredoka(fontSize: 18),
-                            decoration: InputDecoration(
-                              hintText: 'Type your name here...',
-                              hintStyle: GoogleFonts.fredoka(
-                                fontSize: 16,
-                                color: Colors.black26,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.transparent,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                              prefixIcon: const Padding(
-                                padding: EdgeInsets.only(left: 14, right: 8),
-                                child: Text('👤', style: TextStyle(fontSize: 22)),
-                              ),
-                              prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Age slider
-                        _label('How old are you?'),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.75),
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('3', style: GoogleFonts.fredoka(fontSize: 14, color: Colors.black38)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE8724A),
-                                      borderRadius: BorderRadius.circular(50),
-                                    ),
-                                    child: Text(
-                                      '$_selectedAge years old',
-                                      style: GoogleFonts.fredoka(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  Text('13', style: GoogleFonts.fredoka(fontSize: 14, color: Colors.black38)),
-                                ],
-                              ),
-                              SliderTheme(
-                                data: SliderTheme.of(context).copyWith(
-                                  activeTrackColor: const Color(0xFFE8724A),
-                                  inactiveTrackColor: const Color(0xFFE8724A).withOpacity(0.2),
-                                  thumbColor: const Color(0xFFE8724A),
-                                  overlayColor: const Color(0xFFE8724A).withOpacity(0.15),
-                                ),
-                                child: Slider(
-                                  value: _selectedAge.toDouble(),
-                                  min: 3,
-                                  max: 13,
-                                  divisions: 10,
-                                  onChanged: (v) => setState(() => _selectedAge = v.round()),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Avatar picker
-                        _label('Choose your avatar!'),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Swipe to see more  →',
-                          style: GoogleFonts.fredoka(
-                            fontSize: 13,
-                            color: const Color(0xFFE8724A).withOpacity(0.70),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 110,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _avatarOptions.length,
-                            itemBuilder: (context, index) {
-                              final path = _avatarOptions[index];
-                              final selected = _selectedAvatar == path;
-                              return GestureDetector(
-                                onTap: () => setState(() => _selectedAvatar = path),
-                                child: Padding(
-                                  padding: EdgeInsets.only(
-                                    left: index == 0 ? 0 : 12,
-                                    right: index == _avatarOptions.length - 1 ? 0 : 0,
-                                  ),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    width: 90,
-                                    height: 90,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: selected
-                                            ? const Color(0xFFE8724A)
-                                            : Colors.transparent,
-                                        width: 3.5,
-                                      ),
-                                      boxShadow: selected
-                                          ? [
-                                              BoxShadow(
-                                                color: const Color(0xFFE8724A).withOpacity(0.40),
-                                                blurRadius: 14,
-                                                spreadRadius: 1,
-                                              ),
-                                            ]
-                                          : [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.08),
-                                                blurRadius: 6,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
-                                    ),
-                                    child: ClipOval(
-                                      child: Image.asset(path, fit: BoxFit.cover),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-                ),
-                // Next button
-                _buildNavBar(
-                  onBack: null,
-                  onNext: () {
-                    if (_nameController.text.trim().isEmpty || _selectedAvatar == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Please enter your name and pick an avatar!',
-                              style: GoogleFonts.fredoka()),
-                          backgroundColor: const Color(0xFFE8724A),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      );
-                      return;
-                    }
-                    setState(() => _onboardingStep = 1);
-                  },
-                  nextLabel: 'Next  →',
-                ),
-              ],
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                return isWide
+                    ? _avatarPageWide(constraints)
+                    : _avatarPageNarrow(constraints);
+              },
             ),
           ),
         ),
@@ -463,11 +263,322 @@ class _ChildDashboardState extends State<ChildDashboard>
     );
   }
 
+  // Wide layout: left branding panel + right form
+  Widget _avatarPageWide(BoxConstraints c) {
+    const accent = Color(0xFFE8724A);
+    final leftW = c.maxWidth * 0.36;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── LEFT: branding + avatar preview ─────────────────────────────────
+        Container(
+          width: leftW,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [accent.withOpacity(0.22), accent.withOpacity(0.06)],
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Step pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Text('Step 1 of 2',
+                    style: GoogleFonts.fredoka(fontSize: 12, color: accent, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 18),
+              const Text('🌟', style: TextStyle(fontSize: 42)),
+              const SizedBox(height: 10),
+              Text(
+                'Pick Your\nAvatar!',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.fredoka(
+                  fontSize: 26, fontWeight: FontWeight.w700, color: const Color(0xFF444444)),
+              ),
+              const SizedBox(height: 28),
+              // Selected avatar live preview
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 104,
+                height: 104,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.70),
+                  border: Border.all(
+                    color: _selectedAvatar != null ? accent : Colors.black12,
+                    width: 3.5,
+                  ),
+                  boxShadow: _selectedAvatar != null
+                      ? [BoxShadow(color: accent.withOpacity(0.30), blurRadius: 22, spreadRadius: 1)]
+                      : [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12)],
+                ),
+                child: ClipOval(
+                  child: _selectedAvatar != null
+                      ? Image.asset(_selectedAvatar!, fit: BoxFit.cover)
+                      : Center(child: Text('👤', style: TextStyle(fontSize: 44))),
+                ),
+              ),
+              const SizedBox(height: 10),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  _selectedAvatar != null ? '✓ Looking great!' : 'Tap an avatar →',
+                  key: ValueKey(_selectedAvatar),
+                  style: GoogleFonts.fredoka(
+                    fontSize: 13,
+                    color: accent.withOpacity(0.80),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Thin separator
+        Container(width: 1, color: Colors.black.withOpacity(0.07)),
+
+        // ── RIGHT: form ──────────────────────────────────────────────────────
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _fieldLabel("Your name"),
+                const SizedBox(height: 8),
+                _nameField(),
+                const SizedBox(height: 18),
+                _fieldLabel('Age'),
+                const SizedBox(height: 8),
+                _ageWidget(),
+                const SizedBox(height: 18),
+                _fieldLabel('Choose your avatar'),
+                const SizedBox(height: 8),
+                SizedBox(height: 84, child: _avatarScroll()),
+                const Spacer(),
+                _navBar(
+                  onBack: null,
+                  onNext: _avatarNext,
+                  nextLabel: 'Next  →',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Narrow layout: compact single column
+  Widget _avatarPageNarrow(BoxConstraints c) {
+    const accent = Color(0xFFE8724A);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Compact header bar
+        Container(
+          padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+          decoration: BoxDecoration(
+            color: accent.withOpacity(0.10),
+          ),
+          child: Row(
+            children: [
+              Text('🌟', style: const TextStyle(fontSize: 26)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Pick your avatar!',
+                  style: GoogleFonts.fredoka(
+                    fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF444444)),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: accent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Text('1 / 2',
+                    style: GoogleFonts.fredoka(fontSize: 12, color: accent, fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _fieldLabel('Your name'),
+                const SizedBox(height: 6),
+                _nameField(compact: true),
+                const SizedBox(height: 12),
+                _fieldLabel('Age'),
+                const SizedBox(height: 6),
+                _ageWidget(compact: true),
+                const SizedBox(height: 12),
+                _fieldLabel('Choose your avatar'),
+                const SizedBox(height: 6),
+                SizedBox(height: 76, child: _avatarScroll(itemSize: 68)),
+                const Spacer(),
+              ],
+            ),
+          ),
+        ),
+
+        _navBar(onBack: null, onNext: _avatarNext, nextLabel: 'Next  →'),
+      ],
+    );
+  }
+
+  void _avatarNext() {
+    if (_nameController.text.trim().isEmpty || _selectedAvatar == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Please enter your name and pick an avatar!', style: GoogleFonts.fredoka()),
+        backgroundColor: const Color(0xFFE8724A),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+      return;
+    }
+    setState(() => _onboardingStep = 1);
+  }
+
+  // ── Shared form sub-widgets ─────────────────────────────────────────────────
+  Widget _fieldLabel(String text) => Text(
+        text,
+        style: GoogleFonts.fredoka(
+          fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF555555)),
+      );
+
+  Widget _nameField({bool compact = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.80),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFE8A07A).withOpacity(0.15), blurRadius: 12, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: TextField(
+        controller: _nameController,
+        style: GoogleFonts.fredoka(fontSize: compact ? 16 : 17),
+        decoration: InputDecoration(
+          hintText: 'Type your name here...',
+          hintStyle: GoogleFonts.fredoka(fontSize: 15, color: Colors.black26),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          filled: true,
+          fillColor: Colors.transparent,
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 18, vertical: compact ? 12 : 15),
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 14, right: 6),
+            child: Text('👤', style: TextStyle(fontSize: 20)),
+          ),
+          prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        ),
+      ),
+    );
+  }
+
+  Widget _ageWidget({bool compact = false}) {
+    const accent = Color(0xFFE8724A);
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, compact ? 8 : 10, 16, compact ? 4 : 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.75),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Text('3', style: GoogleFonts.fredoka(fontSize: 13, color: Colors.black38)),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: accent,
+                inactiveTrackColor: accent.withOpacity(0.18),
+                thumbColor: accent,
+                overlayColor: accent.withOpacity(0.12),
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              ),
+              child: Slider(
+                value: _selectedAge.toDouble(),
+                min: 3, max: 13, divisions: 10,
+                onChanged: (v) => setState(() => _selectedAge = v.round()),
+              ),
+            ),
+          ),
+          Text('13', style: GoogleFonts.fredoka(fontSize: 13, color: Colors.black38)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: accent, borderRadius: BorderRadius.circular(50)),
+            child: Text(
+              '$_selectedAge yrs',
+              style: GoogleFonts.fredoka(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarScroll({double itemSize = 76}) {
+    const accent = Color(0xFFE8724A);
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: _avatarOptions.length,
+      itemBuilder: (context, index) {
+        final path = _avatarOptions[index];
+        final selected = _selectedAvatar == path;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedAvatar = path),
+          child: Padding(
+            padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: itemSize,
+              height: itemSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? accent : Colors.black12,
+                  width: selected ? 3.5 : 1.5,
+                ),
+                boxShadow: selected
+                    ? [BoxShadow(color: accent.withOpacity(0.40), blurRadius: 14, spreadRadius: 1)]
+                    : [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 6, offset: const Offset(0, 2))],
+              ),
+              child: ClipOval(child: Image.asset(path, fit: BoxFit.cover)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ─── STEP 2: HAND PREFERENCE ────────────────────────────────────────────────
   Widget _buildHandPreferencePage() {
+    const accent = Color(0xFF5A8A5A);
     return AnimatedBuilder(
       animation: _bgController,
       builder: (_, __) => Scaffold(
+        resizeToAvoidBottomInset: false,
         body: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -480,98 +591,135 @@ class _ChildDashboardState extends State<ChildDashboard>
             ),
           ),
           child: SafeArea(
-            child: Column(
-              children: [
-                _buildOnboardingHeader('Step 2 of 2', 'Which hand do you use?', '✋', canGoBack: true),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        // Subtitle
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.55),
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                          child: Text(
-                            'We\'ll personalise the experience for this choice',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.fredoka(
-                              fontSize: 15,
-                              color: const Color(0xFF4A7A4A),
-                              fontWeight: FontWeight.w500,
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final isWide = constraints.maxWidth >= 600;
+                return Column(
+                  children: [
+                    // ── Header ─────────────────────────────────────────────
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => setState(() => _onboardingStep = 0),
+                            child: Container(
+                              width: 38, height: 38,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.65),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.arrow_back_ios_new_rounded,
+                                  size: 16, color: Color(0xFF666666)),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 40),
+                          const SizedBox(width: 12),
+                          Text('✋', style: const TextStyle(fontSize: 26)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Which hand do you use?',
+                              style: GoogleFonts.fredoka(
+                                  fontSize: 19, fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF3A5A3A)),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: accent.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(50),
+                            ),
+                            child: Text('2 / 2',
+                                style: GoogleFonts.fredoka(
+                                    fontSize: 12, color: accent, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
 
-                        // Hand cards
-                        Row(
+                    // ── Subtitle ─────────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.50),
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: Text(
+                          'We\'ll personalise the experience for your choice',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.fredoka(
+                            fontSize: 13, color: const Color(0xFF4A7A4A)),
+                        ),
+                      ),
+                    ),
+
+                    // ── Hand cards ───────────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isWide ? 48 : 20, vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(child: _buildHandCard(hand: 'left')),
+                            Expanded(child: _buildHandCard(hand: 'left', compact: !isWide)),
                             const SizedBox(width: 16),
-                            Expanded(child: _buildHandCard(hand: 'right')),
+                            Expanded(child: _buildHandCard(hand: 'right', compact: !isWide)),
                           ],
                         ),
-
-                        const SizedBox(height: 32),
-
-                        // Selected indicator
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: _selectedHand != null
-                              ? Container(
-                                  key: ValueKey(_selectedHand),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF5A8A5A).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(50),
-                                    border: Border.all(
-                                      color: const Color(0xFF5A8A5A).withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _selectedHand == 'left'
-                                        ? '🎉 Great! Left hand selected'
-                                        : '🎉 Great! Right hand selected',
-                                    style: GoogleFonts.fredoka(
-                                      fontSize: 15,
-                                      color: const Color(0xFF3A6A3A),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox(key: ValueKey('empty'), height: 44),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                _buildNavBar(
-                  onBack: () => setState(() => _onboardingStep = 0),
-                  onNext: () {
-                    if (_selectedHand == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Please choose your favourite hand!',
-                              style: GoogleFonts.fredoka()),
-                          backgroundColor: const Color(0xFF5A8A5A),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      );
-                      return;
-                    }
-                    _saveProfile();
-                  },
-                  nextLabel: "Let's Start! 🚀",
-                  nextColor: const Color(0xFF5A8A5A),
-                ),
-              ],
+
+                    // ── Selection indicator ──────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10, bottom: 4),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _selectedHand != null
+                            ? Container(
+                                key: ValueKey(_selectedHand),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: accent.withOpacity(0.14),
+                                  borderRadius: BorderRadius.circular(50),
+                                  border: Border.all(color: accent.withOpacity(0.25)),
+                                ),
+                                child: Text(
+                                  _selectedHand == 'left'
+                                      ? '🎉 Left hand selected!'
+                                      : '🎉 Right hand selected!',
+                                  style: GoogleFonts.fredoka(
+                                      fontSize: 14, color: const Color(0xFF3A6A3A),
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              )
+                            : const SizedBox(key: ValueKey('empty'), height: 36),
+                      ),
+                    ),
+
+                    // ── Nav bar ──────────────────────────────────────────────
+                    _navBar(
+                      onBack: () => setState(() => _onboardingStep = 0),
+                      onNext: () {
+                        if (_selectedHand == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Please choose your favourite hand!', style: GoogleFonts.fredoka()),
+                            backgroundColor: accent,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ));
+                          return;
+                        }
+                        _saveProfile();
+                      },
+                      nextLabel: "Let's Start! 🚀",
+                      nextColor: accent,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -579,85 +727,77 @@ class _ChildDashboardState extends State<ChildDashboard>
     );
   }
 
-  Widget _buildHandCard({required String hand}) {
+  Widget _buildHandCard({required String hand, bool compact = false}) {
     final isLeft = hand == 'left';
     final isSelected = _selectedHand == hand;
     final label = isLeft ? 'Left Hand' : 'Right Hand';
     final accentColor = isLeft ? const Color(0xFF6AADDA) : const Color(0xFFE8724A);
+    final handSize = compact ? 72.0 : 88.0;
 
     return GestureDetector(
       onTap: () => setState(() => _selectedHand = hand),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+        padding: EdgeInsets.symmetric(
+          vertical: compact ? 16 : 22, horizontal: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           color: isSelected ? accentColor.withOpacity(0.12) : Colors.white.withOpacity(0.65),
           border: Border.all(
-            color: isSelected ? accentColor : Colors.transparent,
-            width: 3,
-          ),
+            color: isSelected ? accentColor : Colors.transparent, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: isSelected
-                  ? accentColor.withOpacity(0.30)
-                  : Colors.black.withOpacity(0.06),
-              blurRadius: isSelected ? 24 : 12,
-              offset: const Offset(0, 6),
+              color: isSelected ? accentColor.withOpacity(0.28) : Colors.black.withOpacity(0.06),
+              blurRadius: isSelected ? 22 : 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Hand illustration
             AnimatedBuilder(
               animation: _handPulseAnim,
               builder: (_, __) => Transform.scale(
                 scale: isSelected ? _handPulseAnim.value : 1.0,
                 child: _HandIllustration(
                   isLeft: isLeft,
-                  color: isSelected ? accentColor : const Color(0xFF8B8B8B),
-                  size: 100,
+                  color: isSelected ? accentColor : const Color(0xFF9E9E9E),
+                  size: handSize,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: compact ? 10 : 14),
             Text(
               label,
               style: GoogleFonts.fredoka(
-                fontSize: 20,
+                fontSize: compact ? 17 : 20,
                 fontWeight: FontWeight.w700,
                 color: isSelected ? accentColor : const Color(0xFF666666),
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: compact ? 2 : 4),
             Text(
-              isLeft ? 'I write with\nmy left' : 'I write with\nmy right',
+              isLeft ? 'I write with my left' : 'I write with my right',
               textAlign: TextAlign.center,
               style: GoogleFonts.fredoka(
-                fontSize: 13,
-                color: isSelected
-                    ? accentColor.withOpacity(0.75)
-                    : const Color(0xFF999999),
-                height: 1.35,
+                fontSize: compact ? 11 : 13,
+                color: isSelected ? accentColor.withOpacity(0.70) : const Color(0xFF999999),
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: compact ? 8 : 12),
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 28,
-              height: 28,
+              width: 26, height: 26,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected ? accentColor : Colors.transparent,
                 border: Border.all(
-                  color: isSelected ? accentColor : const Color(0xFFCCCCCC),
-                  width: 2.5,
-                ),
+                    color: isSelected ? accentColor : const Color(0xFFCCCCCC), width: 2.5),
               ),
               child: isSelected
-                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 16)
                   : null,
             ),
           ],
@@ -666,133 +806,61 @@ class _ChildDashboardState extends State<ChildDashboard>
     );
   }
 
-  // ─── SHARED ONBOARDING WIDGETS ──────────────────────────────────────────────
-  Widget _buildOnboardingHeader(String stepLabel, String title, String emoji, {required bool canGoBack}) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              if (canGoBack)
-                GestureDetector(
-                  onTap: () => setState(() => _onboardingStep = 0),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.65),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: Color(0xFF666666)),
-                  ),
-                )
-              else
-                const SizedBox(width: 40),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(50),
-                    ),
-                    child: Text(
-                      stepLabel,
-                      style: GoogleFonts.fredoka(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF888888),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 40),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(emoji, style: const TextStyle(fontSize: 40)),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: GoogleFonts.fredoka(
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF444444),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavBar({
+  // ── Shared nav bar ──────────────────────────────────────────────────────────
+  Widget _navBar({
     required VoidCallback? onBack,
     required VoidCallback onNext,
     required String nextLabel,
     Color nextColor = const Color(0xFFE8724A),
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Row(
         children: [
           if (onBack != null) ...[
             GestureDetector(
               onTap: onBack,
               child: Container(
-                height: 54,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.black12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF666666)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Back',
-                      style: GoogleFonts.fredoka(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF666666),
-                      ),
-                    ),
+                    const Icon(Icons.arrow_back_ios_new_rounded, size: 15, color: Color(0xFF666666)),
+                    const SizedBox(width: 5),
+                    Text('Back',
+                        style: GoogleFonts.fredoka(
+                            fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF666666))),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
           ],
           Expanded(
             child: GestureDetector(
               onTap: onNext,
               child: Container(
-                height: 54,
+                height: 50,
                 decoration: BoxDecoration(
                   color: nextColor,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: nextColor.withOpacity(0.40),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
+                        color: nextColor.withOpacity(0.38),
+                        blurRadius: 14, offset: const Offset(0, 5)),
                   ],
                 ),
                 child: Center(
                   child: Text(
                     nextLabel,
                     style: GoogleFonts.fredoka(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.3,
-                    ),
+                        fontSize: 16, fontWeight: FontWeight.w700,
+                        color: Colors.white, letterSpacing: 0.2),
                   ),
                 ),
               ),
@@ -803,127 +871,214 @@ class _ChildDashboardState extends State<ChildDashboard>
     );
   }
 
-  Widget _label(String text) => Text(
-        text,
-        style: GoogleFonts.fredoka(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFF555555),
-        ),
-      );
-
   // ─── MAIN DASHBOARD ─────────────────────────────────────────────────────────
   Widget _buildDashboard() {
-    final colorScheme = Theme.of(context).colorScheme;
     final scheduledActivities = _getTodaysScheduledActivities();
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 38,
-                    backgroundColor: colorScheme.surface,
-                    backgroundImage:
-                        _avatarPath != null ? AssetImage(_avatarPath!) : null,
-                    child: _avatarPath == null
-                        ? const Icon(Icons.person, size: 40)
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    "Hi ${_childName ?? 'Friend'}!",
-                    style: GoogleFonts.fredoka(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            final isWide = constraints.maxWidth >= 600;
+            return Column(
+              children: [
+                // ── Greeting header ─────────────────────────────────────────
+                Container(
+                  padding: EdgeInsets.fromLTRB(
+                      isWide ? 28 : 18, isWide ? 18 : 14,
+                      isWide ? 28 : 18, isWide ? 18 : 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFFFFF0E8),
+                        const Color(0xFFFDE8D8),
+                      ],
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: scheduledActivities.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: scheduledActivities.length,
-                      itemBuilder: (context, index) {
-                        final name = scheduledActivities[index];
-                        final completed = _completedToday[name] == true;
-                        return _buildActivityCard(name, completed);
-                      },
-                    ),
-            ),
-          ],
+                  child: Row(
+                    children: [
+                      Container(
+                        width: isWide ? 52 : 44,
+                        height: isWide ? 52 : 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFE8724A), width: 2.5),
+                          boxShadow: [
+                            BoxShadow(
+                                color: const Color(0xFFE8724A).withOpacity(0.25),
+                                blurRadius: 10),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _avatarPath != null
+                              ? Image.asset(_avatarPath!, fit: BoxFit.cover)
+                              : const Icon(Icons.person, size: 28, color: Color(0xFFE8724A)),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hi, ${_childName ?? 'Friend'}! 👋',
+                              style: GoogleFonts.fredoka(
+                                fontSize: isWide ? 24 : 20,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF3D3D3D),
+                              ),
+                            ),
+                            Text(
+                              scheduledActivities.isEmpty
+                                  ? 'Nothing planned today'
+                                  : "${scheduledActivities.length} activit${scheduledActivities.length == 1 ? 'y' : 'ies'} today",
+                              style: GoogleFonts.fredoka(
+                                fontSize: 13, color: const Color(0xFF888888)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Nyota star badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8724A).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: Text('⭐ NYOTA',
+                            style: GoogleFonts.fredoka(
+                                fontSize: 13, color: const Color(0xFFE8724A),
+                                fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Activity list / grid ────────────────────────────────────
+                Expanded(
+                  child: scheduledActivities.isEmpty
+                      ? _buildEmptyState()
+                      : isWide
+                          ? _buildActivityGrid(scheduledActivities)
+                          : _buildActivityList(scheduledActivities),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildActivityCard(String activityName, bool completed) {
-    final colorScheme = Theme.of(context).colorScheme;
+  // Wide: 2×2 grid
+  Widget _buildActivityGrid(List<String> activities) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 3.0,
+        ),
+        itemCount: activities.length,
+        itemBuilder: (ctx, i) {
+          final name = activities[i];
+          return _buildActivityCard(name, _completedToday[name] == true, wide: true);
+        },
+      ),
+    );
+  }
+
+  // Narrow: vertical list
+  Widget _buildActivityList(List<String> activities) {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      itemCount: activities.length,
+      itemBuilder: (ctx, i) {
+        final name = activities[i];
+        return _buildActivityCard(name, _completedToday[name] == true);
+      },
+    );
+  }
+
+  Widget _buildActivityCard(String activityName, bool completed, {bool wide = false}) {
     final color = _getActivityColor(activityName);
     final timeHint = _getTimeHint(activityName);
+    final iconSize = wide ? 36.0 : 40.0;
+    final boxSize = wide ? 56.0 : 64.0;
 
     return GestureDetector(
       onTap: completed ? null : () => _startActivity(activityName),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: wide ? 0 : 12),
+        padding: EdgeInsets.all(wide ? 14 : 14),
         decoration: BoxDecoration(
-          color: completed ? color.withOpacity(0.15) : colorScheme.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: completed ? Border.all(color: AppTheme.success, width: 3) : null,
+          color: completed ? color.withOpacity(0.10) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: completed
+              ? Border.all(color: AppTheme.success, width: 2.5)
+              : Border.all(color: color.withOpacity(0.12), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: completed
+                  ? AppTheme.success.withOpacity(0.10)
+                  : color.withOpacity(0.14),
+              blurRadius: 12, offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: boxSize, height: boxSize,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(20),
+                color: color.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(_getActivityIcon(activityName), size: 48, color: color),
+              child: Icon(_getActivityIcon(activityName), size: iconSize, color: color),
             ),
-            const SizedBox(width: 20),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     activityName,
                     style: GoogleFonts.fredoka(
-                      fontSize: 22,
+                      fontSize: wide ? 17 : 19,
                       fontWeight: FontWeight.w700,
-                      color: completed ? AppTheme.success : colorScheme.onSurface,
+                      color: completed ? AppTheme.success : const Color(0xFF333333),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     timeHint,
                     style: GoogleFonts.fredoka(
-                      fontSize: 15,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                        fontSize: 13, color: const Color(0xFF999999)),
                   ),
                 ],
               ),
             ),
             if (completed)
-              const Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 40),
+              Icon(Icons.check_circle_rounded, color: AppTheme.success, size: wide ? 28 : 34)
+            else
+              Container(
+                width: 32, height: 32,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.play_arrow_rounded, color: color, size: 20),
+              ),
           ],
         ),
       ),
@@ -951,32 +1106,24 @@ class _ChildDashboardState extends State<ChildDashboard>
   }
 
   Widget _buildEmptyState() {
-    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(36),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.sentiment_satisfied_alt_rounded,
-                size: 90, color: colorScheme.secondary.withOpacity(0.6)),
-            const SizedBox(height: 24),
+            const Text('📚', style: TextStyle(fontSize: 64)),
+            const SizedBox(height: 18),
             Text(
-              "Nothing planned today",
+              'Nothing planned today',
               style: GoogleFonts.fredoka(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
+                  fontSize: 22, fontWeight: FontWeight.w600, color: const Color(0xFF555555)),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              "Your parent will add some fun learning soon!",
-              style: GoogleFonts.fredoka(
-                fontSize: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
+              'Your parent will add some fun learning soon!',
+              style: GoogleFonts.fredoka(fontSize: 15, color: const Color(0xFF999999)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -986,17 +1133,13 @@ class _ChildDashboardState extends State<ChildDashboard>
   }
 }
 
-// ─── HAND ILLUSTRATION ─────────────────────────────────────────────────────────
+// ─── HAND ILLUSTRATION ──────────────────────────────────────────────────────
 class _HandIllustration extends StatelessWidget {
   final bool isLeft;
   final Color color;
   final double size;
 
-  const _HandIllustration({
-    required this.isLeft,
-    required this.color,
-    required this.size,
-  });
+  const _HandIllustration({required this.isLeft, required this.color, required this.size});
 
   @override
   Widget build(BuildContext context) {
@@ -1016,14 +1159,9 @@ class _HandPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
+    final paint = Paint()..color = color..style = PaintingStyle.fill;
+    final w = size.width; final h = size.height;
 
-    final w = size.width;
-    final h = size.height;
-
-    // Palm
     final palmPath = Path()
       ..moveTo(w * 0.20, h * 0.55)
       ..quadraticBezierTo(w * 0.10, h * 0.50, w * 0.12, h * 0.38)
@@ -1045,10 +1183,8 @@ class _HandPainter extends CustomPainter {
       ..quadraticBezierTo(w * 0.18, h * 0.88, w * 0.14, h * 0.74)
       ..quadraticBezierTo(w * 0.10, h * 0.62, w * 0.20, h * 0.55)
       ..close();
-
     canvas.drawPath(palmPath, paint);
 
-    // Thumb
     final thumbPath = Path()
       ..moveTo(w * 0.20, h * 0.55)
       ..quadraticBezierTo(w * 0.08, h * 0.48, w * 0.05, h * 0.40)
@@ -1057,16 +1193,13 @@ class _HandPainter extends CustomPainter {
       ..quadraticBezierTo(w * 0.28, h * 0.24, w * 0.28, h * 0.32)
       ..quadraticBezierTo(w * 0.28, h * 0.44, w * 0.22, h * 0.50)
       ..close();
-
     canvas.drawPath(thumbPath, paint);
 
-    // Finger dividers (subtle lines)
     final linePaint = Paint()
       ..color = Colors.white.withOpacity(0.35)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
-
     canvas.drawLine(Offset(w * 0.30, h * 0.55), Offset(w * 0.30, h * 0.36), linePaint);
     canvas.drawLine(Offset(w * 0.50, h * 0.55), Offset(w * 0.50, h * 0.38), linePaint);
     canvas.drawLine(Offset(w * 0.68, h * 0.56), Offset(w * 0.68, h * 0.40), linePaint);
