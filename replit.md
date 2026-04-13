@@ -10,11 +10,12 @@ Nyota (meaning "star" in Swahili) is an interactive math learning platform with:
 - Firebase authentication
 - Text-to-speech support
 
-### Shapes Activity — 3 Sub-Activities (Magrид-style)
-When a child opens Shapes from the planner, they land in a visually rich hub with three sub-activities:
+### Shapes Activity — 4 Sub-Activities
+When a child opens Shapes from the planner, they land in a visually rich hub with four sub-activities:
 1. **Shape Hunt** (`shapes_find_shape.dart`) — Find all hidden instances of a target shape scattered across a complex scene; develops visual discrimination
 2. **Shape Pairs** (`shapes_find_pairs.dart`) — Tap two matching shapes in a grid (shapes vary in color & size to reinforce that shape identity persists across variations)
 3. **Shape Patterns** (`shapes_patterns.dart`) — Observe a sequence of shapes (AB, ABC, AABB) and choose what comes next
+4. **Shape Tracing** (`shapes_tracing.dart`) — Dot-connect tracing activity: numbered dots are laid out in the shape's outline; kids drag their finger to connect them in sequence. App verifies correct sequential connection (without allowing skipping dots), then rewards with animated flying stars + the shape name. Pool of 8 shapes: Triangle, Square, Rectangle, Diamond, Pentagon, Hexagon, Star (10-dot), Circle (8-dot). Split-screen: left shows the complete example shape, right is the interactive dot-connect canvas.
 
 ### Landing Page & Navigation
 - **Landing page (`landing_screen.dart`):** Warm gradient background, floating animated pastel dots (CustomPainter), `learn.png` hero image with floating bounce animation, animated NYOTA letter-by-letter title (gradient terracotta shader), "Welcome to Your Learning Adventure! ⭐" subtitle, animated Log In / Sign Up buttons with press-scale effect and Sign Up pulse.
