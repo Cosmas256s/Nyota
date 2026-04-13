@@ -902,6 +902,29 @@ class _ChildDashboardState extends State<ChildDashboard>
                   ),
                   child: Row(
                     children: [
+                      // Back to role selector
+                      Tooltip(
+                        message: 'Back to home',
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: isWide ? 40 : 36,
+                            height: isWide ? 40 : 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.75),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.black.withOpacity(0.08),
+                                    blurRadius: 6),
+                              ],
+                            ),
+                            child: const Icon(Icons.arrow_back_ios_new_rounded,
+                                size: 16, color: Color(0xFFBF7A56)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Container(
                         width: isWide ? 52 : 44,
                         height: isWide ? 52 : 44,

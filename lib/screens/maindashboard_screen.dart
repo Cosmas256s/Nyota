@@ -2,6 +2,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'parentdashboard.dart';
 import 'childdashboard.dart';
 
@@ -77,6 +78,59 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
     super.dispose();
   }
 
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Sign out?',
+            style: GoogleFonts.fredoka(fontSize: 22, fontWeight: FontWeight.w700)),
+        content: Text('You will be returned to the login screen.',
+            style: GoogleFonts.fredoka(fontSize: 15)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.fredoka(fontSize: 15)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE8724A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Sign out', style: GoogleFonts.fredoka(fontSize: 15)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+    }
+  }
+
+  Widget _buildLogoutButton() {
+    return Tooltip(
+      message: 'Sign out',
+      child: Material(
+        color: Colors.white.withOpacity(0.75),
+        shape: const CircleBorder(),
+        elevation: 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: _logout,
+          child: const Padding(
+            padding: EdgeInsets.all(10),
+            child: Icon(Icons.logout_rounded,
+                size: 22, color: Color(0xFFBF7A56)),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _navigateTo(Widget screen, int cardIndex) async {
     setState(() => _pressedCard = cardIndex);
     await Future.delayed(const Duration(milliseconds: 180));
@@ -130,6 +184,13 @@ class _MainDashboardScreenState extends State<MainDashboardScreen>
               children: [
                 _buildFloatingOrbs(size),
                 _buildContent(size),
+                Positioned(
+                  top: 12,
+                  right: 16,
+                  child: SafeArea(
+                    child: _buildLogoutButton(),
+                  ),
+                ),
               ],
             ),
           );
