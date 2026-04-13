@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1084654426667",
+    "project_id": "nyota-dc4e2",
+    "storage_bucket": "nyota-dc4e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1084654426667:android:bc6ea693fa15cdd717286e",
+        "android_client_info": {
+          "package_name": "com.example.nyota"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCrG4tp2eiVLv6YNM8hJ5kla6U2VuzKV-s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

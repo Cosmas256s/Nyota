@@ -1,0 +1,35 @@
+# Flutter/Dart generated files
+.dart_tool/
+.packages
+build/
+ios/.generated/
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Generated.xcconfig
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Android files
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/google-services.json
+android/app/src/main/res/raw/google-services.json
+
+# iOS files (if you add iOS later)
+ios/Pods/
+ios/Podfile.lock
+ios/Runner.xcworkspace/
+ios/Runner.xcodeproj/project.xcworkspace/
+ios/Runner.xcodeproj/xcshareddata/
+ios/Runner/GoogleService-Info.plist
+
+# Misc
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.lock
+pubspec.lock
+flutter_*.log
+
+# Firebase sensitive files (never commit!)
+firebase_options.dart  # ← remove this line if you want to commit it (but usually it's ok)
