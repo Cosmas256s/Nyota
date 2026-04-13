@@ -9,6 +9,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nyota/theme.dart';
 import 'package:nyota/widgets/mascots.dart';
+import 'activity_extensions.dart';
 
 class ShapesFindShapeScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
@@ -42,6 +43,9 @@ class _ShapesFindShapeScreenState extends State<ShapesFindShapeScreen>
   bool _roundComplete = false;
   int _hintsLeft = 3;
   DateTime? _sessionStart;
+  int _extraMinutes = 0;
+  int _extensionsUsed = 0;
+  static const _maxExtensions = 3;
 
   static const _shapes = ['circle', 'square', 'triangle', 'star', 'rectangle', 'oval', 'diamond', 'heart'];
   static const _sceneColors = [
@@ -78,7 +82,7 @@ class _ShapesFindShapeScreenState extends State<ShapesFindShapeScreen>
 
   bool get _timeIsUp {
     if (widget.maxDurationMinutes == null || _sessionStart == null) return false;
-    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes!;
+    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes! + _extraMinutes;
   }
 
   Future<void> _speak(String text) async {
@@ -86,8 +90,27 @@ class _ShapesFindShapeScreenState extends State<ShapesFindShapeScreen>
     if (prefs.getBool('sound_enabled') ?? true) await _tts.speak(text);
   }
 
+  void _handleTimeUp() {
+    if (_extensionsUsed >= _maxExtensions) { _endSession(); return; }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TimeExtensionDialog(
+        extensionsLeft: _maxExtensions - _extensionsUsed,
+        accentColor: const Color(0xFFFF6B6B),
+        onExtend: () {
+          setState(() { _extraMinutes += 1; _extensionsUsed++; });
+          Navigator.pop(context);
+          _startRound();
+        },
+        onFinish: () { Navigator.pop(context); _endSession(); },
+      ),
+    );
+  }
+
   void _startRound() {
-    if (_timeIsUp || _round >= _totalRounds) {
+    if (_timeIsUp) { _handleTimeUp(); return; }
+    if (_round >= _totalRounds) {
       _endSession();
       return;
     }

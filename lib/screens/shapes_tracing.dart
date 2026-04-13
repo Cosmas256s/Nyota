@@ -1,11 +1,33 @@
 // lib/screens/shapes_tracing.dart
+// Shape tracing activity – split screen: example (left) + practice (right)
+// Hints shown for the first 2 shapes only; from shape 3 onwards the child traces unaided.
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+// ─── Data ─────────────────────────────────────────────────────────────────────
+class _ShapeMeta {
+  final String name;
+  final Color accent;  // stroke / fill colour
+  final Color bg;      // screen background
+  const _ShapeMeta({required this.name, required this.accent, required this.bg});
+}
+
+const _kShapes = [
+  _ShapeMeta(name: 'Circle',   accent: Color(0xFFE53935), bg: Color(0xFFFFF3E0)),
+  _ShapeMeta(name: 'Triangle', accent: Color(0xFF7B1FA2), bg: Color(0xFFF3E5F5)),
+  _ShapeMeta(name: 'Square',   accent: Color(0xFF0277BD), bg: Color(0xFFE3F2FD)),
+  _ShapeMeta(name: 'Star',     accent: Color(0xFF2E7D32), bg: Color(0xFFE8F5E9)),
+  _ShapeMeta(name: 'Diamond',  accent: Color(0xFFFF6F00), bg: Color(0xFFFFF8E1)),
+];
+
+// Up to which shape index to show hints (0-indexed, inclusive)
+const _kHintUpTo = 1;
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 class ShapesTracingScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
   final String? rewardImagePath;
@@ -22,31 +44,25 @@ class ShapesTracingScreen extends StatefulWidget {
 
 class _ShapesTracingScreenState extends State<ShapesTracingScreen>
     with TickerProviderStateMixin {
-  late AnimationController _celebrateCtrl;
-  late AnimationController _hintCtrl;
-  late FlutterTts _tts;
 
-  // Which shape we're currently tracing
   int _shapeIndex = 0;
   int _completedCount = 0;
-
-  // User's drawn strokes
-  final List<List<Offset>> _strokes = [];
-  List<Offset> _currentStroke = [];
-
-  // Progress: how much of the shape guide path has been covered
-  double _progress = 0.0;
   bool _shapeComplete = false;
 
-  static const _shapes = [
-    _ShapeMeta(name: 'Circle', color: Color(0xFFE53935), bg: Color(0xFFFFF3E0)),
-    _ShapeMeta(name: 'Triangle', color: Color(0xFF7B1FA2), bg: Color(0xFFF3E5F5)),
-    _ShapeMeta(name: 'Square', color: Color(0xFF0277BD), bg: Color(0xFFE3F2FD)),
-    _ShapeMeta(name: 'Star', color: Color(0xFF2E7D32), bg: Color(0xFFE8F5E9)),
-    _ShapeMeta(name: 'Diamond', color: Color(0xFFFF6F00), bg: Color(0xFFFFF8E1)),
-  ];
+  // Drawing
+  final List<List<Offset>> _strokes = [];
+  List<Offset> _currentStroke = [];
+  double _progress = 0.0;
 
-  _ShapeMeta get _current => _shapes[_shapeIndex % _shapes.length];
+  // Animations
+  late AnimationController _celebrateCtrl;
+  late AnimationController _hintCtrl;   // drives the animated finger on example
+  late AnimationController _bgCtrl;
+
+  late FlutterTts _tts;
+
+  _ShapeMeta get _meta => _kShapes[_shapeIndex % _kShapes.length];
+  bool get _showHint => _shapeIndex <= _kHintUpTo;
 
   @override
   void initState() {
@@ -57,20 +73,21 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
     ]);
 
     _celebrateCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
+      vsync: this, duration: const Duration(milliseconds: 700));
 
     _hintCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+      vsync: this, duration: const Duration(milliseconds: 2800))
+      ..repeat();
+
+    _bgCtrl = AnimationController(
+      vsync: this, duration: const Duration(seconds: 5))
+      ..repeat(reverse: true);
 
     _tts = FlutterTts();
     _tts.setLanguage('en-US');
     _tts.setSpeechRate(0.75);
 
-    Future.delayed(const Duration(milliseconds: 500), _announceShape);
+    Future.delayed(const Duration(milliseconds: 500), _announce);
   }
 
   @override
@@ -78,6 +95,7 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _celebrateCtrl.dispose();
     _hintCtrl.dispose();
+    _bgCtrl.dispose();
     _tts.stop();
     super.dispose();
   }
@@ -87,28 +105,35 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
     if (prefs.getBool('sound_enabled') ?? true) await _tts.speak(text);
   }
 
-  void _announceShape() => _speak('Trace the ${_current.name}!');
+  void _announce() {
+    if (_showHint) {
+      _speak('Watch the guide, then trace the ${_meta.name}!');
+    } else {
+      _speak('Now try tracing the ${_meta.name} on your own!');
+    }
+  }
 
-  // Build the guide path for the current shape (in a given canvas rect)
-  Path _buildGuidePath(Rect r) {
+  // Build the normalised guide path for any given canvas Rect
+  Path _buildPath(Rect r) {
     final cx = r.center.dx;
     final cy = r.center.dy;
-    const rad = 110.0;
+    const rad = 90.0;
 
-    switch (_current.name) {
+    switch (_meta.name) {
       case 'Circle':
-        return Path()..addOval(Rect.fromCenter(center: Offset(cx, cy), width: rad * 2, height: rad * 2));
+        return Path()
+          ..addOval(Rect.fromCenter(center: Offset(cx, cy), width: rad * 2, height: rad * 2));
 
       case 'Triangle':
         return Path()
           ..moveTo(cx, cy - rad)
-          ..lineTo(cx + rad, cy + rad)
-          ..lineTo(cx - rad, cy + rad)
+          ..lineTo(cx + rad, cy + rad * 0.8)
+          ..lineTo(cx - rad, cy + rad * 0.8)
           ..close();
 
       case 'Square':
         return Path()
-          ..addRect(Rect.fromCenter(center: Offset(cx, cy), width: rad * 2, height: rad * 2));
+          ..addRect(Rect.fromCenter(center: Offset(cx, cy), width: rad * 1.9, height: rad * 1.9));
 
       case 'Star':
         final path = Path();
@@ -122,58 +147,47 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
         return path;
 
       case 'Diamond':
+      default:
         return Path()
           ..moveTo(cx, cy - rad)
-          ..lineTo(cx + rad * 0.7, cy)
+          ..lineTo(cx + rad * 0.65, cy)
           ..lineTo(cx, cy + rad)
-          ..lineTo(cx - rad * 0.7, cy)
+          ..lineTo(cx - rad * 0.65, cy)
           ..close();
-
-      default:
-        return Path()..addOval(Rect.fromCenter(center: Offset(cx, cy), width: rad * 2, height: rad * 2));
     }
   }
 
+  // ── Drawing callbacks ────────────────────────────────────────────────────────
   void _onPanStart(DragStartDetails d) {
     if (_shapeComplete) return;
-    setState(() {
-      _currentStroke = [d.localPosition];
-    });
+    setState(() => _currentStroke = [d.localPosition]);
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
     if (_shapeComplete) return;
     setState(() {
       _currentStroke.add(d.localPosition);
-      _updateProgress(d.localPosition);
+      _recalcProgress(d.localPosition);
     });
   }
 
   void _onPanEnd(DragEndDetails _) {
     if (_shapeComplete) return;
     setState(() {
-      if (_currentStroke.isNotEmpty) {
-        _strokes.add(List.from(_currentStroke));
-      }
+      if (_currentStroke.isNotEmpty) _strokes.add(List.from(_currentStroke));
       _currentStroke = [];
     });
   }
 
-  // Measure coverage by sampling the guide path and checking proximity of drawn strokes
-  void _updateProgress(Offset pos) {
-    // Cheap approximation: count how many sample points on the path are
-    // within a threshold distance of any drawn point
-    // We update incrementally for performance.
-    // Real approach: check proximity to guide path
-    // For fluid UX we just grow progress when the user draws near the guide
+  // Cheap coverage check against the practice panel path
+  void _recalcProgress(Offset pos) {
     final size = context.size;
     if (size == null) return;
-    final guideRect = Rect.fromCenter(
-      center: Offset(size.width * 0.5, size.height * 0.5),
-      width: size.width,
-      height: size.height,
-    );
-    final guidePath = _buildGuidePath(guideRect);
+
+    // Practice panel occupies the right 60% of the screen
+    final practiceRect = Rect.fromLTWH(
+      size.width * 0.38, 0, size.width * 0.62, size.height);
+    final guidePath = _buildPath(practiceRect);
     final metrics = guidePath.computeMetrics().toList();
     if (metrics.isEmpty) return;
 
@@ -183,24 +197,23 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
 
     for (int i = 0; i < samples; i++) {
       final t = i / samples;
-      final dist = totalLen * t;
+      double d = totalLen * t;
       double acc = 0;
       for (final m in metrics) {
-        if (dist <= acc + m.length) {
-          final tangent = m.getTangentForOffset(dist - acc);
+        if (d <= acc + m.length) {
+          final tangent = m.getTangentForOffset(d - acc);
           if (tangent != null) {
-            final guidePoint = tangent.position;
-            // Check all drawn points for proximity
+            final gp = tangent.position;
             bool near = false;
             for (final stroke in _strokes) {
               for (final pt in stroke) {
-                if ((pt - guidePoint).distance < 28) { near = true; break; }
+                if ((pt - gp).distance < 32) { near = true; break; }
               }
               if (near) break;
             }
             if (!near) {
               for (final pt in _currentStroke) {
-                if ((pt - guidePoint).distance < 28) { near = true; break; }
+                if ((pt - gp).distance < 32) { near = true; break; }
               }
             }
             if (near) covered++;
@@ -211,39 +224,35 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
       }
     }
 
-    final newProgress = (covered / samples).clamp(0.0, 1.0);
-    if (newProgress > _progress) {
-      _progress = newProgress;
-    }
+    final np = (covered / samples).clamp(0.0, 1.0);
+    if (np > _progress) setState(() => _progress = np);
 
-    if (_progress >= 0.72 && !_shapeComplete) {
-      _onShapeComplete();
-    }
+    if (_progress >= 0.68 && !_shapeComplete) _onComplete();
   }
 
-  void _onShapeComplete() {
+  void _onComplete() {
     setState(() => _shapeComplete = true);
-    _celebrateCtrl.forward();
-    _speak('Amazing! You traced the ${_current.name}!');
+    _celebrateCtrl.forward(from: 0);
+    _speak('Wonderful! You traced the ${_meta.name}!');
 
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
+      final next = _shapeIndex + 1;
+      if (next >= _kShapes.length) {
+        widget.onSessionComplete();
+        Navigator.pop(context);
+        return;
+      }
       setState(() {
+        _shapeIndex = next;
         _completedCount++;
-        _shapeIndex++;
         _strokes.clear();
         _currentStroke = [];
         _progress = 0;
         _shapeComplete = false;
       });
       _celebrateCtrl.reset();
-      Future.delayed(const Duration(milliseconds: 400), _announceShape);
-
-      // After all shapes, finish session
-      if (_completedCount >= _shapes.length) {
-        widget.onSessionComplete();
-        Navigator.pop(context);
-      }
+      Future.delayed(const Duration(milliseconds: 350), _announce);
     });
   }
 
@@ -255,305 +264,512 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
     });
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final guideRect = Rect.fromCenter(
-      center: Offset(size.width * 0.5, size.height * 0.5),
-      width: size.width,
-      height: size.height,
-    );
-    final guidePath = _buildGuidePath(guideRect);
+    final exampleRect = Rect.fromLTWH(0, 0, size.width * 0.38, size.height);
+    final practiceRect = Rect.fromLTWH(size.width * 0.38, 0, size.width * 0.62, size.height);
 
-    return Scaffold(
-      backgroundColor: _current.bg,
-      body: Stack(
-        children: [
-          // Drawing canvas
-          GestureDetector(
-            onPanStart: _onPanStart,
-            onPanUpdate: _onPanUpdate,
-            onPanEnd: _onPanEnd,
-            child: CustomPaint(
-              size: Size.infinite,
-              painter: _TracingPainter(
-                guidePath: guidePath,
-                strokes: _strokes,
-                currentStroke: _currentStroke,
-                accentColor: _current.color,
-                progress: _progress,
-                hintAnim: _hintCtrl,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: Scaffold(
+        key: ValueKey(_shapeIndex),
+        backgroundColor: _meta.bg,
+        body: Row(
+          children: [
+            // ── LEFT: Example panel ──────────────────────────────────────────
+            SizedBox(
+              width: size.width * 0.38,
+              height: size.height,
+              child: _buildExamplePanel(exampleRect),
+            ),
+            // Divider
+            Container(
+              width: 2,
+              height: size.height,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    _meta.accent.withOpacity(0.08),
+                    _meta.accent.withOpacity(0.30),
+                    _meta.accent.withOpacity(0.08),
+                  ],
+                ),
+              ),
+            ),
+            // ── RIGHT: Practice panel ────────────────────────────────────────
+            Expanded(
+              child: _buildPracticePanel(practiceRect),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Example panel ────────────────────────────────────────────────────────────
+  Widget _buildExamplePanel(Rect rect) {
+    return Stack(
+      children: [
+        // Soft background circle
+        Positioned.fill(
+          child: Center(
+            child: Container(
+              width: rect.width * 0.85,
+              height: rect.width * 0.85,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _meta.accent.withOpacity(0.07),
               ),
             ),
           ),
+        ),
 
-          // Top bar
-          SafeArea(
+        // Shape + optional hint
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _hintCtrl,
+            builder: (_, __) => CustomPaint(
+              painter: _ExamplePainter(
+                path: _buildPath(rect),
+                accent: _meta.accent,
+                showHint: _showHint,
+                hintProgress: _hintCtrl.value,
+              ),
+            ),
+          ),
+        ),
+
+        // Top: back button + shape counter
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            child: Row(
+              children: [
+                _Btn(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  color: _meta.accent,
+                  onTap: () => Navigator.pop(context),
+                ),
+                const Spacer(),
+                // Shape dots
+                Row(
+                  children: List.generate(_kShapes.length, (i) {
+                    final done = i < _completedCount;
+                    final active = i == _shapeIndex % _kShapes.length;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: active ? 18 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(4),
+                        color: done
+                            ? _meta.accent
+                            : active
+                                ? _meta.accent.withOpacity(0.75)
+                                : _meta.accent.withOpacity(0.20),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // "Example" label at bottom
+        Positioned(
+          bottom: 16,
+          left: 0,
+          right: 0,
+          child: Column(
+            children: [
+              if (_showHint)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _meta.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.touch_app_rounded, size: 14, color: _meta.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Watch & copy',
+                        style: GoogleFonts.fredoka(
+                          fontSize: 12,
+                          color: _meta.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _meta.accent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: Text(
+                    'Try it yourself! ✨',
+                    style: GoogleFonts.fredoka(
+                      fontSize: 12,
+                      color: _meta.accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Practice panel ────────────────────────────────────────────────────────────
+  Widget _buildPracticePanel(Rect rect) {
+    return Stack(
+      children: [
+        // Drawing canvas
+        GestureDetector(
+          onPanStart: _onPanStart,
+          onPanUpdate: _onPanUpdate,
+          onPanEnd: _onPanEnd,
+          child: AnimatedBuilder(
+            animation: _hintCtrl,
+            builder: (_, __) => CustomPaint(
+              size: Size.infinite,
+              painter: _PracticePainter(
+                guidePath: _buildPath(rect),
+                strokes: _strokes,
+                currentStroke: _currentStroke,
+                accent: _meta.accent,
+                hintAnim: _hintCtrl,
+                showStartHint: _progress < 0.08,
+              ),
+            ),
+          ),
+        ),
+
+        // Top-right: clear button
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Row(
-                children: [
-                  // Back
-                  _RoundBtn(
-                    icon: Icons.arrow_back_ios_new_rounded,
-                    color: _current.color,
-                    onTap: () => Navigator.pop(context),
+              padding: const EdgeInsets.fromLTRB(0, 10, 14, 0),
+              child: _Btn(
+                icon: Icons.refresh_rounded,
+                color: _meta.accent,
+                onTap: _clearDrawing,
+              ),
+            ),
+          ),
+        ),
+
+        // Bottom progress bar
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: _progress,
+                    minHeight: 8,
+                    backgroundColor: _meta.accent.withOpacity(0.12),
+                    valueColor: AlwaysStoppedAnimation(_meta.accent),
                   ),
-                  const SizedBox(width: 12),
-                  // Clear
-                  _RoundBtn(
-                    icon: Icons.refresh_rounded,
-                    color: _current.color,
-                    onTap: _clearDrawing,
-                  ),
-                  const Spacer(),
-                  // Progress dots
-                  Row(
-                    children: List.generate(_shapes.length, (i) {
-                      final done = i < _completedCount;
-                      final active = i == _shapeIndex % _shapes.length;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: active ? 22 : 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(5),
-                          color: done
-                              ? _current.color
-                              : active
-                                  ? _current.color.withOpacity(0.8)
-                                  : _current.color.withOpacity(0.2),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+
+        // Celebration overlay
+        if (_shapeComplete)
+          AnimatedBuilder(
+            animation: _celebrateCtrl,
+            builder: (_, __) {
+              final t = CurvedAnimation(parent: _celebrateCtrl, curve: Curves.elasticOut).value;
+              return Center(
+                child: Transform.scale(
+                  scale: t,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: _meta.accent,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _meta.accent.withOpacity(0.45),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
                         ),
-                      );
-                    }),
-                  ),
-                  const Spacer(),
-                  // Progress ring
-                  SizedBox(
-                    width: 44, height: 44,
-                    child: Stack(
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(
-                          value: _progress,
-                          strokeWidth: 5,
-                          backgroundColor: _current.color.withOpacity(0.15),
-                          valueColor: AlwaysStoppedAnimation(_current.color),
-                        ),
-                        Center(
-                          child: Text(
-                            '${(_progress * 100).toInt()}%',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: _current.color,
-                            ),
+                        const Text('🌟', style: TextStyle(fontSize: 50)),
+                        const SizedBox(height: 6),
+                        Text(
+                          _meta.name,
+                          style: GoogleFonts.fredoka(
+                            fontSize: 30,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
-
-          // Celebration overlay
-          if (_shapeComplete)
-            AnimatedBuilder(
-              animation: _celebrateCtrl,
-              builder: (_, __) {
-                final t = CurvedAnimation(parent: _celebrateCtrl, curve: Curves.elasticOut).value;
-                return Center(
-                  child: Transform.scale(
-                    scale: t,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-                      decoration: BoxDecoration(
-                        color: _current.color,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: [
-                          BoxShadow(color: _current.color.withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 10)),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('🎉', style: TextStyle(fontSize: 54)),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_current.name}!',
-                            style: GoogleFonts.fredoka(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
 
-// ─── TRACING PAINTER ───────────────────────────────────────────────────────────
-class _TracingPainter extends CustomPainter {
-  final Path guidePath;
-  final List<List<Offset>> strokes;
-  final List<Offset> currentStroke;
-  final Color accentColor;
-  final double progress;
-  final AnimationController hintAnim;
+// ─── Example Painter ──────────────────────────────────────────────────────────
+// Draws: filled shape + optional animated finger hint
+class _ExamplePainter extends CustomPainter {
+  final Path path;
+  final Color accent;
+  final bool showHint;
+  final double hintProgress; // 0→1
 
-  _TracingPainter({
-    required this.guidePath,
-    required this.strokes,
-    required this.currentStroke,
-    required this.accentColor,
-    required this.progress,
-    required this.hintAnim,
-  }) : super(repaint: hintAnim);
+  _ExamplePainter({
+    required this.path,
+    required this.accent,
+    required this.showHint,
+    required this.hintProgress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Glow behind guide
-    final glowPaint = Paint()
-      ..color = accentColor.withOpacity(0.08 + hintAnim.value * 0.06)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 24);
-    canvas.drawPath(guidePath, glowPaint);
-
-    // 2. Dashed guide outline
-    _drawDashedPath(canvas, guidePath, Paint()
-      ..color = accentColor.withOpacity(0.30 + hintAnim.value * 0.15)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round);
-
-    // 3. Filled guide shape (very light)
-    canvas.drawPath(guidePath, Paint()
-      ..color = accentColor.withOpacity(0.06)
+    // Filled shape
+    canvas.drawPath(path, Paint()
+      ..color = accent.withOpacity(0.18)
       ..style = PaintingStyle.fill);
 
-    // 4. Solid guide outline
-    canvas.drawPath(guidePath, Paint()
-      ..color = accentColor.withOpacity(0.22)
+    // Solid outline
+    canvas.drawPath(path, Paint()
+      ..color = accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round);
+
+    if (!showHint) return;
+
+    // Animated trail: draw path up to hintProgress
+    final metrics = path.computeMetrics().toList();
+    if (metrics.isEmpty) return;
+    final totalLen = metrics.fold<double>(0, (s, m) => s + m.length);
+    final targetLen = totalLen * hintProgress;
+
+    // Build trail path
+    final trail = Path();
+    bool started = false;
+    double acc = 0;
+    for (final m in metrics) {
+      final take = (targetLen - acc).clamp(0.0, m.length);
+      if (take <= 0) break;
+      final sub = m.extractPath(0, take);
+      if (!started) { trail.addPath(sub, Offset.zero); started = true; }
+      else trail.addPath(sub, Offset.zero);
+      acc += m.length;
+      if (acc >= targetLen) break;
+    }
+
+    // Draw trail in bright accent
+    canvas.drawPath(trail, Paint()
+      ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 8
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round);
 
-    // 5. User strokes
-    final drawPaint = Paint()
-      ..color = accentColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    for (final stroke in strokes) {
-      if (stroke.length < 2) continue;
-      final path = Path()..moveTo(stroke[0].dx, stroke[0].dy);
-      for (int i = 1; i < stroke.length; i++) {
-        path.lineTo(stroke[i].dx, stroke[i].dy);
-      }
-      canvas.drawPath(path, drawPaint);
-    }
-
-    if (currentStroke.length >= 2) {
-      final path = Path()..moveTo(currentStroke[0].dx, currentStroke[0].dy);
-      for (int i = 1; i < currentStroke.length; i++) {
-        path.lineTo(currentStroke[i].dx, currentStroke[i].dy);
-      }
-      canvas.drawPath(path, drawPaint);
-    }
-
-    // 6. Hint arrow at the starting point of the guide
-    final metrics = guidePath.computeMetrics().toList();
-    if (metrics.isNotEmpty && progress < 0.15) {
-      final tangent = metrics[0].getTangentForOffset(0);
-      if (tangent != null) {
-        _drawHintArrow(canvas, tangent.position, hintAnim.value);
+    // Finger dot at current position
+    if (metrics.isNotEmpty) {
+      double d = targetLen;
+      double a2 = 0;
+      for (final m in metrics) {
+        if (d <= a2 + m.length) {
+          final tangent = m.getTangentForOffset(d - a2);
+          if (tangent != null) {
+            final pos = tangent.position;
+            // Outer glow
+            canvas.drawCircle(pos, 16, Paint()
+              ..color = accent.withOpacity(0.22)
+              ..style = PaintingStyle.fill);
+            // Inner finger
+            canvas.drawCircle(pos, 10, Paint()
+              ..color = accent
+              ..style = PaintingStyle.fill);
+            canvas.drawCircle(pos, 10, Paint()
+              ..color = Colors.white.withOpacity(0.55)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5);
+          }
+          break;
+        }
+        a2 += m.length;
       }
     }
-  }
-
-  void _drawDashedPath(Canvas canvas, Path path, Paint p) {
-    const dash = 12.0, gap = 8.0;
-    final metrics = path.computeMetrics();
-    for (final m in metrics) {
-      double dist = 0;
-      while (dist < m.length) {
-        final end = (dist + dash).clamp(0.0, m.length);
-        canvas.drawPath(m.extractPath(dist, end), p);
-        dist += dash + gap;
-      }
-    }
-  }
-
-  void _drawHintArrow(Canvas canvas, Offset pos, double pulse) {
-    final paint = Paint()
-      ..color = accentColor.withOpacity(0.6 + pulse * 0.3)
-      ..style = PaintingStyle.fill;
-
-    // Pulsing ring
-    canvas.drawCircle(pos, 16 + pulse * 8, Paint()
-      ..color = accentColor.withOpacity(0.12 + pulse * 0.08)
-      ..style = PaintingStyle.fill);
-    canvas.drawCircle(pos, 10, paint);
-    canvas.drawCircle(pos, 10, Paint()
-      ..color = Colors.white.withOpacity(0.6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5);
-
-    // "Start here" arrow above
-    final arrowTop = Offset(pos.dx, pos.dy - 28 - pulse * 6);
-    final arrowPaint = Paint()
-      ..color = accentColor.withOpacity(0.70)
-      ..style = PaintingStyle.fill;
-    final arrowPath = Path()
-      ..moveTo(arrowTop.dx, arrowTop.dy + 14)
-      ..lineTo(arrowTop.dx - 9, arrowTop.dy)
-      ..lineTo(arrowTop.dx + 9, arrowTop.dy)
-      ..close();
-    canvas.drawPath(arrowPath, arrowPaint);
   }
 
   @override
-  bool shouldRepaint(_TracingPainter o) =>
-      o.progress != progress ||
+  bool shouldRepaint(_ExamplePainter o) =>
+      o.hintProgress != hintProgress || o.showHint != showHint || o.accent != accent;
+}
+
+// ─── Practice Painter ─────────────────────────────────────────────────────────
+class _PracticePainter extends CustomPainter {
+  final Path guidePath;
+  final List<List<Offset>> strokes;
+  final List<Offset> currentStroke;
+  final Color accent;
+  final AnimationController hintAnim;
+  final bool showStartHint;
+
+  _PracticePainter({
+    required this.guidePath,
+    required this.strokes,
+    required this.currentStroke,
+    required this.accent,
+    required this.hintAnim,
+    required this.showStartHint,
+  }) : super(repaint: hintAnim);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Light fill
+    canvas.drawPath(guidePath, Paint()
+      ..color = accent.withOpacity(0.06)
+      ..style = PaintingStyle.fill);
+
+    // Dashed guide
+    _dashedPath(canvas, guidePath, Paint()
+      ..color = accent.withOpacity(0.28 + hintAnim.value * 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round);
+
+    // Thick guide outline (softer)
+    canvas.drawPath(guidePath, Paint()
+      ..color = accent.withOpacity(0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 20
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round);
+
+    // User strokes
+    final draw = Paint()
+      ..color = accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final s in strokes) {
+      if (s.length < 2) continue;
+      final p = Path()..moveTo(s[0].dx, s[0].dy);
+      for (int i = 1; i < s.length; i++) p.lineTo(s[i].dx, s[i].dy);
+      canvas.drawPath(p, draw);
+    }
+    if (currentStroke.length >= 2) {
+      final p = Path()..moveTo(currentStroke[0].dx, currentStroke[0].dy);
+      for (int i = 1; i < currentStroke.length; i++) p.lineTo(currentStroke[i].dx, currentStroke[i].dy);
+      canvas.drawPath(p, draw);
+    }
+
+    // Pulsing start hint
+    if (showStartHint) {
+      final metrics = guidePath.computeMetrics().toList();
+      if (metrics.isNotEmpty) {
+        final tangent = metrics[0].getTangentForOffset(0);
+        if (tangent != null) {
+          final pos = tangent.position;
+          final pulse = hintAnim.value;
+          canvas.drawCircle(pos, 18 + pulse * 8, Paint()
+            ..color = accent.withOpacity(0.10 + pulse * 0.10)
+            ..style = PaintingStyle.fill);
+          canvas.drawCircle(pos, 11, Paint()
+            ..color = accent.withOpacity(0.80)
+            ..style = PaintingStyle.fill);
+          canvas.drawCircle(pos, 11, Paint()
+            ..color = Colors.white.withOpacity(0.60)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.5);
+
+          // Downward arrow
+          final ap = Offset(pos.dx, pos.dy - 32 - pulse * 6);
+          final arr = Path()
+            ..moveTo(ap.dx, ap.dy + 14)
+            ..lineTo(ap.dx - 8, ap.dy)
+            ..lineTo(ap.dx + 8, ap.dy)
+            ..close();
+          canvas.drawPath(arr, Paint()
+            ..color = accent.withOpacity(0.65)
+            ..style = PaintingStyle.fill);
+        }
+      }
+    }
+  }
+
+  void _dashedPath(Canvas canvas, Path path, Paint p) {
+    const dash = 12.0, gap = 7.0;
+    for (final m in path.computeMetrics()) {
+      double d = 0;
+      while (d < m.length) {
+        final end = (d + dash).clamp(0.0, m.length);
+        canvas.drawPath(m.extractPath(d, end), p);
+        d += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PracticePainter o) =>
       o.strokes != strokes ||
       o.currentStroke != currentStroke ||
-      o.accentColor != accentColor;
+      o.accent != accent ||
+      o.showStartHint != showStartHint;
 }
 
-// ─── SUPPORT TYPES ─────────────────────────────────────────────────────────────
-class _ShapeMeta {
-  final String name;
-  final Color color, bg;
-  const _ShapeMeta({required this.name, required this.color, required this.bg});
-}
-
-class _RoundBtn extends StatelessWidget {
+// ─── Shared button ────────────────────────────────────────────────────────────
+class _Btn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _RoundBtn({required this.icon, required this.color, required this.onTap});
+  const _Btn({required this.icon, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 44, height: 44,
+          width: 42, height: 42,
           decoration: BoxDecoration(
             color: color.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.25), width: 1.5),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: color.withOpacity(0.22), width: 1.5),
           ),
           child: Icon(icon, color: color, size: 20),
         ),

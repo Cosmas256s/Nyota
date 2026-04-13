@@ -9,6 +9,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nyota/theme.dart';
 import 'package:nyota/widgets/mascots.dart';
+import 'activity_extensions.dart';
 
 class ShapesFindPairsScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
@@ -42,6 +43,9 @@ class _ShapesFindPairsScreenState extends State<ShapesFindPairsScreen>
   bool _checking = false;
   int _mistakes = 0;
   DateTime? _sessionStart;
+  int _extraMinutes = 0;
+  int _extensionsUsed = 0;
+  static const _maxExtensions = 3;
 
   late List<_PairItem> _gridItems;
   late int _gridCols;
@@ -81,7 +85,7 @@ class _ShapesFindPairsScreenState extends State<ShapesFindPairsScreen>
 
   bool get _timeIsUp {
     if (widget.maxDurationMinutes == null || _sessionStart == null) return false;
-    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes!;
+    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes! + _extraMinutes;
   }
 
   Future<void> _speak(String text) async {
@@ -89,8 +93,27 @@ class _ShapesFindPairsScreenState extends State<ShapesFindPairsScreen>
     if (prefs.getBool('sound_enabled') ?? true) await _tts.speak(text);
   }
 
+  void _handleTimeUp() {
+    if (_extensionsUsed >= _maxExtensions) { _showResult(); return; }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TimeExtensionDialog(
+        extensionsLeft: _maxExtensions - _extensionsUsed,
+        accentColor: const Color(0xFF6C63FF),
+        onExtend: () {
+          setState(() { _extraMinutes += 1; _extensionsUsed++; });
+          Navigator.pop(context);
+          _buildRound();
+        },
+        onFinish: () { Navigator.pop(context); _showResult(); },
+      ),
+    );
+  }
+
   void _buildRound() {
-    if (_timeIsUp || _round >= _totalRounds) {
+    if (_timeIsUp) { _handleTimeUp(); return; }
+    if (_round >= _totalRounds) {
       _showResult();
       return;
     }

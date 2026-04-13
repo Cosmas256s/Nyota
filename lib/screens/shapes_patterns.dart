@@ -9,6 +9,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nyota/theme.dart';
 import 'package:nyota/widgets/mascots.dart';
+import 'activity_extensions.dart';
 
 class ShapesPatternsScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
@@ -39,6 +40,9 @@ class _ShapesPatternsScreenState extends State<ShapesPatternsScreen>
   int _score = 0;
   int _hintsLeft = 3;
   DateTime? _sessionStart;
+  int _extraMinutes = 0;
+  int _extensionsUsed = 0;
+  static const _maxExtensions = 3;
 
   late _PatternQuestion _current;
   int? _selectedAnswer;
@@ -87,7 +91,7 @@ class _ShapesPatternsScreenState extends State<ShapesPatternsScreen>
 
   bool get _timeIsUp {
     if (widget.maxDurationMinutes == null || _sessionStart == null) return false;
-    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes!;
+    return DateTime.now().difference(_sessionStart!).inMinutes >= widget.maxDurationMinutes! + _extraMinutes;
   }
 
   Future<void> _speak(String text) async {
@@ -95,8 +99,27 @@ class _ShapesPatternsScreenState extends State<ShapesPatternsScreen>
     if (prefs.getBool('sound_enabled') ?? true) await _tts.speak(text);
   }
 
+  void _handleTimeUp() {
+    if (_extensionsUsed >= _maxExtensions) { _showResult(); return; }
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => TimeExtensionDialog(
+        extensionsLeft: _maxExtensions - _extensionsUsed,
+        accentColor: const Color(0xFF11998E),
+        onExtend: () {
+          setState(() { _extraMinutes += 1; _extensionsUsed++; });
+          Navigator.pop(context);
+          _generateQuestion();
+        },
+        onFinish: () { Navigator.pop(context); _showResult(); },
+      ),
+    );
+  }
+
   void _generateQuestion() {
-    if (_timeIsUp || _question >= _totalQuestions) {
+    if (_timeIsUp) { _handleTimeUp(); return; }
+    if (_question >= _totalQuestions) {
       _showResult();
       return;
     }
