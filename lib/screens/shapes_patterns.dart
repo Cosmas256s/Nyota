@@ -9,6 +9,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nyota/theme.dart';
 import 'package:nyota/widgets/mascots.dart';
+import 'package:nyota/widgets/nav_buttons.dart';
 import 'activity_extensions.dart';
 
 class ShapesPatternsScreen extends StatefulWidget {
@@ -261,23 +262,15 @@ class _ShapesPatternsScreenState extends State<ShapesPatternsScreen>
 
   Widget _buildTopBar() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       color: Colors.white,
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                color: const Color(0xFF11998E).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              child: Icon(Icons.arrow_back_rounded, color: const Color(0xFF11998E), size: 24.w),
-            ),
-          ),
+          KidBackButton(onTap: () => Navigator.pop(context), color: const Color(0xFF11998E)),
+          SizedBox(width: 8.w),
+          KidHomeButton(onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
           SizedBox(width: 12.w),
-          Text('Shape Patterns', style: GoogleFonts.fredoka(fontSize: 22.sp, fontWeight: FontWeight.bold, color: const Color(0xFF11998E))),
+          Text('Shape Patterns', style: GoogleFonts.fredoka(fontSize: 20.sp, fontWeight: FontWeight.bold, color: const Color(0xFF11998E))),
           const Spacer(),
           // Progress bar
           Expanded(

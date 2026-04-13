@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:nyota/widgets/nav_buttons.dart';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 class _ShapeMeta {
@@ -346,14 +347,12 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
         // Top: back button + shape counter
         SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+            padding: const EdgeInsets.fromLTRB(10, 8, 14, 0),
             child: Row(
               children: [
-                _Btn(
-                  icon: Icons.arrow_back_ios_new_rounded,
-                  color: _meta.accent,
-                  onTap: () => Navigator.pop(context),
-                ),
+                KidBackButton(onTap: () => Navigator.pop(context), color: _meta.accent),
+                const SizedBox(width: 8),
+                KidHomeButton(onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
                 const Spacer(),
                 // Shape dots
                 Row(
@@ -464,8 +463,10 @@ class _ShapesTracingScreenState extends State<ShapesTracingScreen>
           child: Align(
             alignment: Alignment.topRight,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 10, 14, 0),
-              child: _Btn(
+              padding: const EdgeInsets.fromLTRB(0, 8, 14, 0),
+              child: KidNavButton(
+                label: 'Clear',
+                emoji: '🔄',
                 icon: Icons.refresh_rounded,
                 color: _meta.accent,
                 onTap: _clearDrawing,

@@ -7,6 +7,7 @@ import 'package:nyota/theme.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
+import 'package:nyota/widgets/nav_buttons.dart';
 
 class CountingActivityScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
@@ -497,30 +498,17 @@ class _CountingActivityScreenState extends State<CountingActivityScreen> {
               ),
               child: Row(
                 children: [
-                  // Back/Exit button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: IconButton(
-                      onPressed: _showExitConfirmation,
-                      icon: Icon(
-                        Icons.arrow_back_rounded,
-                        color: colorScheme.primary,
-                        size: 28.w,
-                      ),
-                      tooltip: 'Exit Activity',
-                    ),
-                  ),
+                  KidBackButton(onTap: _showExitConfirmation, color: colorScheme.primary),
+                  SizedBox(width: 8.w),
+                  KidHomeButton(onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
                   SizedBox(width: 12.w),
-                  
+
                   // Activity Title
                   Expanded(
                     child: Text(
                       'Counting Activity',
                       style: GoogleFonts.fredoka(
-                        fontSize: 22.sp,
+                        fontSize: 20.sp,
                         fontWeight: FontWeight.w600,
                         color: colorScheme.primary,
                       ),

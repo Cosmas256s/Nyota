@@ -8,6 +8,7 @@ import 'shapes_find_shape.dart';
 import 'shapes_find_pairs.dart';
 import 'shapes_patterns.dart';
 import 'shapes_tracing.dart';
+import 'package:nyota/widgets/nav_buttons.dart';
 
 class ShapesHubScreen extends StatefulWidget {
   final VoidCallback onSessionComplete;
@@ -192,7 +193,9 @@ class _ShapesHubScreenState extends State<ShapesHubScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       child: Row(
                         children: [
-                          _BackBtn(onTap: () => Navigator.pop(context)),
+                          KidBackButton(onTap: () => Navigator.pop(context), color: const Color(0xFFE07A5F)),
+                          const SizedBox(width: 10),
+                          KidHomeButton(onTap: () => Navigator.of(context).popUntil((r) => r.isFirst)),
                           const Spacer(),
                           // Star decorations
                           const _StarRow(),
